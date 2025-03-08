@@ -1,0 +1,94 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  name          String?
+  email         String    @unique
+  createdAt     DateTime  @default(now())
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  Account       Account[]
+  picks         Pick[]
+  sessions      Session[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  providerAccountId String
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Event {
+  id     String   @id @default(uuid())
+  name   String
+  date   DateTime
+  fights Fight[]
+  picks  Pick[]
+}
+
+model Fight {
+  id       String           @id @default(uuid())
+  eventID  String
+  fighterA String
+  fighterB String
+  winner   String?
+  method   MethodOfVictory?
+  event    Event            @relation(fields: [eventID], references: [id])
+  Pick     Pick[]
+}
+
+model Pick {
+  id            String           @id @default(uuid())
+  userId        String
+  eventId       String
+  fightId       String
+  chosenFighter String
+  predictMethod MethodOfVictory?
+  score         Int?
+  event         Event            @relation(fields: [eventId], references: [id])
+  fight         Fight            @relation(fields: [fightId], references: [id])
+  user          User             @relation(fields: [userId], references: [id])
+}
+
+enum MethodOfVictory {
+  TKO_KO
+  Submission
+  Decision
+  Other
+}
