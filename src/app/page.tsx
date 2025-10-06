@@ -7,6 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  CURRENT_EVENT,
+  METHOD_OF_VICTORY_VALUES,
+} from "@/config/current-event";
 
 export default function Page() {
   const { data: session } = useSession();
@@ -61,6 +65,8 @@ export default function Page() {
     }));
   };
 
+  const fights = CURRENT_EVENT.fights;
+
   // ✅ Handles form submission
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -76,7 +82,7 @@ export default function Page() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ picks }),
+        body: JSON.stringify({ eventId: CURRENT_EVENT.id, picks }),
       });
 
       const data = await response.json();
@@ -94,40 +100,6 @@ export default function Page() {
       alert("Submission failed. Check console for details.");
     }
   };
-
-  // ✅ List of fights
-  const fights = [
-    {
-      id: 1,
-      bout: "Lightweight",
-      fighter1: "King Green",
-      fighter2: "Mauricio Ruffy",
-    },
-    {
-      id: 2,
-      bout: "Women's Strawweight",
-      fighter1: "Amanda Lemos",
-      fighter2: "Iasmin Lucindo",
-    },
-    {
-      id: 3,
-      bout: "Lightweight",
-      fighter1: "Jalin Turner",
-      fighter2: "Ignacio Bahamondes",
-    },
-    {
-      id: 4,
-      bout: "Lightweight",
-      fighter1: "Justin Gaethje",
-      fighter2: "Rafael Fiziev",
-    },
-    {
-      id: 5,
-      bout: "Light Heavyweight Title",
-      fighter1: "Alex Pereira (C)",
-      fighter2: "Magomed Ankalaev",
-    },
-  ];
 
   if (loading) {
     return <p className="text-center text-lg">Loading...</p>;
@@ -166,7 +138,7 @@ export default function Page() {
               <Card className="w-full max-w-2xl shadow-lg rounded-xl border">
                 <CardHeader>
                   <CardTitle className="text-2xl text-center font-semibold">
-                    UFC 313: Pereira vs Ankalaev
+                    {CURRENT_EVENT.name}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -222,8 +194,7 @@ export default function Page() {
                             }
                             value={picks[fight.id]?.method || ""}
                           >
-                            {["TKO_KO", "Submission", "Decision", "Other"].map(
-                              (method) => {
+                            {METHOD_OF_VICTORY_VALUES.map((method) => {
                                 const uniqueId = `${fight.id}-${method}`;
                                 return (
                                   <div

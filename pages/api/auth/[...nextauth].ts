@@ -1,20 +1,31 @@
-import NextAuth, { AuthOptions } from "next-auth";
+import type { NextAuthOptions, Session } from "next-auth";
+import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
-import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import { JWT } from "next-auth/jwt";
-import { User } from "next-auth";
-import { prisma } from "@/lib/prisma"; // Use a centralized Prisma instance
 
+import { prisma } from "@/lib/prisma";
 
-export const authOptions: AuthOptions = {
+type RequiredEnvVar =
+  | "GOOGLE_CLIENT_ID"
+  | "GOOGLE_CLIENT_SECRET"
+  | "NEXTAUTH_SECRET";
+
+const requireEnv = (key: RequiredEnvVar): string => {
+  const value = process.env[key];
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${key}`);
+  }
+  return value;
+};
+
+export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      clientId: requireEnv("GOOGLE_CLIENT_ID"),
+      clientSecret: requireEnv("GOOGLE_CLIENT_SECRET"),
     }),
     CredentialsProvider({
       name: "Credentials",
@@ -29,18 +40,25 @@ export const authOptions: AuthOptions = {
 
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            password: true,
+          },
         });
 
-        if (!user || !user.password) {
-          throw new Error("Invalid email or password");
+        if (!user?.password) {
+          return null;
         }
 
         const isValid = await bcrypt.compare(
           credentials.password,
           user.password,
         );
+
         if (!isValid) {
-          throw new Error("Invalid email or password");
+          return null;
         }
 
         return {
@@ -51,40 +69,41 @@ export const authOptions: AuthOptions = {
       },
     }),
   ],
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: requireEnv("NEXTAUTH_SECRET"),
   session: {
     strategy: "jwt",
   },
   callbacks: {
-    async jwt({
-      token,
-      user,
-      account,
-      trigger,
-      session,
-    }: {
-      token: JWT;
-      user?: User;
-      account?: any;
-      trigger?: "signIn" | "signUp" | "update";
-      session?: any;
-    }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.sub = user.id;
-        token.name = user.name;
-        token.email = user.email;
+        token.name = user.name ?? token.name;
+        token.email = user.email ?? token.email;
       }
 
-      if (trigger === "update" && session?.name) {
-        token.name = session.name;
+      if (trigger === "update" && session?.user?.name) {
+        token.name = session.user.name;
       }
 
       return token;
     },
-    async session({ session, token }: { session: any; token: JWT }) {
-      session.user.id = token.sub;
-      session.user.name = token.name;
-      session.user.email = token.email;
+    async session({ session, token }) {
+      const baseUser: Session["user"] =
+        session.user ?? {
+          id: "",
+          name: null,
+          email: null,
+          image: null,
+        };
+
+      const userId = token.sub ?? baseUser.id;
+
+      session.user = {
+        ...baseUser,
+        id: userId,
+        name: token.name ?? baseUser.name ?? null,
+        email: token.email ?? baseUser.email ?? null,
+      };
 
       return session;
     },
@@ -92,7 +111,7 @@ export const authOptions: AuthOptions = {
   pages: {
     signIn: "/login",
   },
-  debug: true,
+  debug: process.env.NODE_ENV !== "production",
 };
 
 export default NextAuth(authOptions);

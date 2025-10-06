@@ -31,8 +31,9 @@
     "next-env.d.ts",
     ".next/types/**/*.ts",
     "**/*.ts",
-    "**/*.tsx"
-, "pages/api/submit-picks.js", "pages/leaderboard.js"  ],
+    "**/*.tsx",
+    "pages/leaderboard.js"
+  ],
   "exclude": [
     "node_modules"
   ]
